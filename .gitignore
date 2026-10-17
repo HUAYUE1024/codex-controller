@@ -1,0 +1,14 @@
+.voice-models/
+.voice-runtime/
+__pycache__/
+artifacts/
+protocol/
+node_modules/
+.venv/
+.env
+.env.*
+!.env.example
+*.log
+/smoke-results.json
+/test-results.txt
+/VERIFICATION.md
