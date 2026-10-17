@@ -1,256 +1,202 @@
-# Codex Controller · 手柄 + 语音工作台
+<p align="center">
+  <img src="docs/assets/mark.svg" width="72" height="72" alt="Codex Controller mark">
+</p>
 
-在 Windows 浏览器里用手柄选择 Codex 会话、用麦克风输入任务、预览文字后发送，再查看真实 agent 输出。控制端通过本机 Node.js 桥接官方 `codex app-server --stdio`；不是演示回复，也不需要另建 API key。
+<h1 align="center">Codex Controller</h1>
 
-这是可运行的本地原型，不是 OpenAI 官方产品，也不是操纵已有 Codex 桌面窗口的鼠标宏。它启动独立的 Codex app-server，使用该 CLI 的登录和会话能力。是否能看到其他 Codex 客户端创建的会话，取决于它们是否使用同一个本机 Codex 数据目录。
+<p align="center">
+  <strong>Drive Codex with a gamepad.</strong><br>
+  Navigate with your thumbs. Speak your next task. Review before you send.
+</p>
 
-## 1. 准备
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-222222?style=flat-square" alt="License: MIT"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/Node.js-22%2B-43853d?style=flat-square" alt="Node.js 22 or newer"></a>
+  <a href="#development"><img src="https://img.shields.io/badge/npm_dependencies-0-555555?style=flat-square" alt="Zero third-party npm dependencies"></a>
+  <a href="https://github.com/HUAYUE1024/codex-controller/stargazers"><img src="https://img.shields.io/github/stars/HUAYUE1024/codex-controller?style=flat-square&color=0071e3" alt="GitHub stars"></a>
+</p>
 
-- Windows 电脑；已在一台 Windows 笔记本上验证本地模型与 Realtek 麦克风录入、停顿续说。其他手柄、麦克风与机器仍需复测。
-- [Node.js 22 或更新版本](https://nodejs.org/)，安装后重新打开终端。
-- 官方 [Codex CLI](https://github.com/openai/codex)，并有可用的 Codex 账户与额度。
-- 支持 Gamepad API 的浏览器与手柄。语音使用浏览器麦克风权限、WebAudio / AudioWorklet 和本地 Fun-ASR-Nano 模型，不依赖浏览器在线 SpeechRecognition 服务；语音运行环境安装见下文。
-- 建议先使用可丢弃的测试项目；agent 能执行命令和修改文件，执行前阅读 UI 中的审批内容。
+<p align="center">
+  English · <a href="README.zh-CN.md">简体中文</a><br>
+  <a href="#quick-start">Quick start</a> · <a href="#the-controls">Controls</a> · <a href="#local-voice">Local voice</a> · <a href="#contributing">Contribute</a>
+</p>
 
-### 检查环境
+![Controller Studio: a silver gamepad diagram alongside button assignments and input monitoring](docs/assets/controller-studio.jpg)
 
-在解压后的目录打开 PowerShell：
+<p align="center"><sub>Actual application UI with isolated synthetic demo data. The current interface is in Chinese; no live account, session or recording is shown.</sub></p>
 
-```powershell
-.\scripts\setup.ps1
-```
+## Why this exists
 
-默认仅检查 Node/Codex，**不会安装软件、登录账户或创建凭据**。本控制端没有第三方 npm 依赖，不需要在项目目录运行 npm install。
+Coding agents made it easier to describe work. Their interfaces still mostly expect a keyboard and mouse.
 
-若尚未安装 Codex，可自行执行官方安装命令：
+**Codex Controller explores another input model:** a gamepad for navigation, local speech recognition for drafting, and explicit confirmation for actions. It is a Windows-first browser workbench connected to the official Codex CLI—not a mouse macro, an IDE replacement or an official OpenAI product.
+
+| Capability | What you can do |
+| --- | --- |
+| Spatial navigation | Move between visible controls with the left stick; use the right stick to read messages, code and tables. |
+| ABXY desktop controls | Confirm, go back, open an on-screen keyboard, or switch to a precise in-page pointer. |
+| Continuous voice drafting | Tap RT to start, pause naturally, continue speaking, then tap again to finish. Text stays in the draft until you send it. |
+| Intent wheel | Choose from eight editable prompt intents, including debugging, UI polish, testing and review. These are draft templates—not hidden automation. |
+| Controller Studio | Inspect 17 standard-layout buttons, trigger values and stick coordinates; remap actions and tune thresholds, dead zones and scroll speed. |
+| Execution visibility | Read streamed replies, available reasoning summaries, commands, file changes and approval requests in one timeline. |
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/workspace.jpg" alt="Task workspace with thread navigation, execution timeline and an editable draft"></td>
+    <td width="50%"><img src="docs/assets/intent-wheel.jpg" alt="Eight-direction intent wheel with a preview of the UI-polish prompt"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>A workspace for tasks, drafts and execution records.</sub></td>
+    <td align="center"><sub>Choose an intention. Inspect the prompt. Keep control.</sub></td>
+  </tr>
+</table>
+
+## Quick start
+
+Start with keyboard and mouse. Add a controller and local voice when you are ready.
+
+### Requirements
+
+| Component | Requirement |
+| --- | --- |
+| Platform | Windows; the current hardware-verified environment. Other operating systems have not been validated. |
+| Runtime | [Node.js 22+](https://nodejs.org/) and Git. The workbench has no third-party npm dependencies. |
+| Agent | [Official Codex CLI](https://github.com/openai/codex), available on `PATH`, with an account that can use Codex. |
+| Browser | Gamepad API support; microphone permission, WebAudio and AudioWorklet for voice. |
+| Optional hardware | A standard-mapped USB/Bluetooth gamepad and a microphone. |
+
+Install the CLI if it is not already available:
 
 ```powershell
 npm install -g @openai/codex
 ```
 
-或者明确选择让检查脚本安装/更新 CLI：
+Clone and launch:
 
 ```powershell
-.\scripts\setup.ps1 -InstallCodex
+git clone https://github.com/HUAYUE1024/codex-controller.git
+cd codex-controller
+.\start.cmd
 ```
 
-该开关会联网下载官方 npm 包并更改全局 npm 安装；不加开关不会安装。不要用管理员终端作为默认解决办法。如果 PowerShell 阻止脚本，请按组织政策处理；无需修改全局执行策略，安装检查也可手动完成，启动可直接用 start.cmd。
+1. Enter the **existing project directory** you want Codex to work in when the launcher asks.
+2. Open the printed address, normally `http://127.0.0.1:4318/`.
+3. Sign in through the official authorization flow if needed. Select or create a task.
+4. Draft a request, check the target and text, then select **Send**. Review approvals when requested.
 
-## 2. 启动与登录
+The launcher builds the frontend before starting. Keep its terminal open; press `Ctrl+C` there to stop the server. There is no separate API key to configure for the Codex account flow; account limits and model usage still apply.
 
-1. 双击 `start.cmd`，按提示填写希望 Codex 操作的现有项目文件夹完整路径，不要加引号。也可运行 `.\scripts\start.ps1 -Workspace 'C:\projects\my-app'`。启动器不默认把控制台源码目录当成你的工作项目。
-2. 保持终端打开，使用它打印的本机地址；默认端口为 `4318`。
-3. 在页面中检查连接状态；如果未登录，点击页面的 ChatGPT 登录按钮，在官方页面自行完成登录。
-4. 返回控制台，确认登录状态，再选择项目路径与会话。
-5. 先发一个低风险任务，例如“列出这个项目的主要文件，先不要修改”。检查输出和审批后再运行实际开发任务。
+For an explicit workspace, environment variables, diagnostics and the full acceptance checklist, see the [usage guide (Chinese)](docs/USAGE.zh-CN.md).
 
-控制台不要求你粘贴密码、token 或 API key。登录授权由 Codex 官方流程处理，凭据由 Codex 管理。使用模型会受账户计划、额度与服务可用性约束。
+## The controls
 
-停止：回到启动终端按 `Ctrl+C`。关闭浏览器标签页并不等于停止后台服务。
+Connect your gamepad, focus the page and press a button so the browser can discover it. Defaults follow the **Gamepad API standard layout**; labels and availability can vary by device.
 
-### 路径与端口配置
-
-直接用 Node 启动时，先明确设置工作目录；未设置时服务使用启动时的当前目录：
-
-```powershell
-$env:CODEX_WORKSPACE = 'C:\projects\my-app'
-$env:PORT = '4318'
-node server.mjs
-```
-
-可选 `CODEX_BIN` 指定 Codex 可执行程序路径（Windows 自定义路径须为 codex.exe；npm 的 codex.cmd 请加入 PATH 并使用默认值），`CODEX_HOME` 指定 Codex 数据目录。改变 CODEX_HOME 会改变可用的登录与历史会话，不要随意覆盖现有目录。启动脚本不会替你修改 Codex 的持久配置。
-
-## 3. 手柄与语音
-
-### 手柄
-
-先用 USB 或蓝牙连接手柄，点击浏览器页面，然后按一下手柄按键，让浏览器发现它。页面显示的控制提示是当前映射的依据。不同品牌、浏览器和非标准映射手柄的按键顺序可能不同；请先用无副作用的选择操作验证映射，再发送任务。
-
-保持页面在前台。浏览器后台限速、手柄断连或系统休眠可能影响按键响应。连接识别不代表全部按钮已经兼容。
-
-### 语音输入
-
-1. 阅读并同意页面中的语音隐私提示，再允许浏览器访问麦克风。
-2. 使用页面录音按钮或显示的手柄快捷键开始讲话。
-3. 停止后检查输入框里的识别文字，可用键盘修正。
-4. 确认目标会话和内容后主动发送。语音转写完成不应自动发送任务。
-
-默认通道是 **Fun-ASR-Nano 本地中文模型**，不再使用旧 Windows 桌面识别器。浏览器获得同意及麦克风权限后，通过 AudioWorklet 采集 16 kHz、16-bit 单声道 PCM，仅通过本机同源接口交给神经网络；临时文字可被整句结果修正，停顿分句不结束整段收音。内置 Codex / API / UI / RT 等词汇提示，但热词不保证识别正确。文字只进入草稿，不自动发送。
-
-模型首次安装（约 1.66 GB 权重 + 2.3 MB Silero VAD）：
-
-```powershell
-# 使用已有的 Python / PyTorch / Transformers >= 5.17 环境；不要覆盖其他项目的运行库。
-python -m pip install --no-deps --target .voice-runtime torchaudio==2.11.0
-python scripts/setup-voice.py
-npm start
-```
-
-本机实测使用 Python 3.12、已安装的 torch 2.13.0+cu132、transformers 5.17.0，以及项目隔离目录中的 torchaudio 2.11.0（仅使用纯 Torch Kaldi fbank，未使用音频解码扩展）。该组合已实际完成 GPU 推理验证，不代表其他版本组合兼容。标准新环境应安装匹配版本的 torch / torchaudio。`setup-voice.py` 固定模型修订并校验 ASR / VAD 的 SHA-256；保存 Python 绝对路径至 `.voice-runtime/python.json`，也可设置 `LOCAL_SPEECH_PYTHON`。
-
-运行时强制离线、`local_files_only=True`、`trust_remote_code=False`，不会临时下载模型、不需要 API key。服务启动后在后台预热一个常驻进程，避免每次 RT 重新加载；CUDA 可用时优先使用 GPU，否则使用 CPU，设备在语音诊断中显示。本机模型分配显存约 1.65 GB，另外还有 CUDA 上下文及缓存；退出服务器会释放。`GET /api/voice/status` 不打开麦克风，区分已安装 / 已预热；`POST /api/voice/prepare` 先准备模型，再请求麦克风，避免模型加载消耗收音会话的空闲期限。冷启动最多等待 90 秒，热启动复用模型。
-
-每段最长 3 分钟；再次短按 RT 或点击结束后立即释放麦克风，再等待尾句完成（最多 25 秒）。页面离开、取消、任务切换和输入设备断开均停止相关收音。服务端进程不打开系统麦克风，原始音频不落盘。Silero 检测讲话与停顿，保留句首缓冲，约 700 ms 停顿后确认整句；临时结果约每 1.5 秒更新。单句上下文最多 20 秒，不间断长句会强制切分，边界可能影响单词，实际口音、噪声及混说效果仍应人工核对。
-
-模型与隔离运行库位于 `.voice-models/`、`.voice-runtime/`，不在静态文件服务白名单中。安装只下载模型，不向外发送录音。
-
-### 键盘备用操作
-
-所有任务都可在文本框输入，并用页面按钮发送、切换会话和中断。使用 Tab / Shift+Tab 移动焦点、Enter / Space 激活标准按钮。快捷键以页面提示为准；不需要手柄或麦克风也能使用。
-
-## 4. 安全边界
-
-- 服务只面向本机使用。不要开放公网端口、做路由器端口转发或放到公开隧道里。
-- 本机 HTTP 地址并不意味着传输到互联网的模型请求或语音处理都在本地。`localhost` / loopback 通常被浏览器视为可信安全上下文，因此本地使用通常无需自签名 HTTPS 证书。普通局域网 HTTP 地址不等价。
-- 切勿绕过浏览器安全警告。若设备或组织政策阻止麦克风，使用键盘备用方式。
-- 审批可能允许命令执行或文件修改。确认项目、命令、路径和作用范围；不理解的请求应拒绝。
-- 只在可信项目中使用。第三方仓库、文件和工具输出可能包含恶意指令。
-- 不要把任何登录链接、终端会话信息或私人项目内容随意分享给第三方。
-
-## 5. 验证与排错
-
-### 自检
-
-```powershell
-node --version
-codex --version
-codex app-server --help
-node --check server.mjs
-```
-
-安装后确认 `codex app-server --help` 包含 stdio 传输支持。2026-10-15 本机复测的 CLI 是 `0.154.0`，支持 `--stdio`；协议仍可能随版本变化。升级后若调用失败，记录 CLI 版本与错误文字排查，不要通过关闭沙箱来掩盖问题。
-
-### 后端只读握手测试
-
-```powershell
-npm run smoke
-```
-
-该测试使用隔离的 Codex 数据目录，与真实 CLI 做协议握手，不登录、不提交模型任务，也不证明语音、手柄或 Windows 硬件已通过验收。具体测试输出以当前环境运行结果为准。
-
-### Windows 人工验收清单
-
-- [ ] 新开终端能运行 Node 22+ 与 Codex CLI。
-- [ ] start.cmd 启动后本机页面可打开，显示真实后端连接。
-- [ ] 官方登录成功，页面更新账户状态。
-- [ ] 创建/选择测试项目会话，键盘发送任务并收到真实响应。
-- [ ] 手柄按键一次只触发预期操作，切换目标后再发送。
-- [ ] 麦克风权限允许/拒绝两种情况都可恢复；识别文本可以编辑。
-- [ ] 语音只进入草稿；未确认发送时不启动任务。
-- [ ] 审批可明确拒绝，中断操作能停止当前任务。
-- [ ] 断开手柄或语音服务不可用时仍能键盘操作。
-- [ ] Ctrl+C 结束服务，不遗留可访问的控制页面。
-
-以上是需在目标设备上完成的检查项，不代表已经通过 Windows 实测。
-
-### 常见问题
-
-- **找不到 node/codex**：安装后重新打开终端，确认 `where.exe node`、`where.exe codex` 能找到程序。npm 全局可执行目录必须在 PATH 中。
-- **端口已被占用**：停止你之前启动的同一服务，或查看服务端支持的端口配置。不要随意结束不认识的进程。
-- **手柄没出现**：保持页面前台并按一次按钮；检查 Windows 已连接设备、尝试 USB、重新插拔，然后刷新页面。
-- **语音不可用/无文字**：在“语音诊断”检查模型状态并选择实际使用的麦克风；观察收音面板的输入电平。确认浏览器麦克风权限、系统静音开关与本机服务连接。默认本地识别不依赖浏览器在线语音服务。
-- **登录打不开或失败**：查看终端与页面错误，按官方登录流程重新尝试。不要向控制台提供密码或密钥。
-- **Windows 启动或沙箱失败**：根据[官方 Windows 指南](https://developers.openai.com/codex/windows)检查当前 CLI 的要求。原生 Windows、沙箱初始化与组织安全策略可能有差异，本项目没有验证所有组合。WSL 是不同执行环境，路径、安装、登录与文件权限也不同，不能直接假定 Windows 配置自动通用。
-
-## 技术参考
-
-- [OpenAI Codex CLI 源码与安装说明](https://github.com/openai/codex)
-- [Codex App Server 官方协议说明](https://developers.openai.com/codex/app-server)
-- [Codex Windows 指南](https://developers.openai.com/codex/windows)
-- [MDN SpeechRecognition：兼容性与服务端识别提示](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition)
-- [MDN 安全上下文与 localhost](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Secure_Contexts)
-
-实现与权限以随包源码、当前安装的 Codex 版本及页面实际提示为准。
-
-## 当前支持边界
-
-- 接受真实命令执行审批、文件修改审批和 `item/tool/requestUserInput` 问题；审批仅支持本次接受、拒绝、取消，不提供永久批准。
-- MCP elicitation、额外 permission grant、动态工具调用、凭据刷新和 attestation 客户端请求会返回明确的“不支持”错误。依赖这些能力的任务需在官方 Codex 客户端重新执行或继续，不会在本界面静默批准，也不能把已经拒绝的请求直接移交。
-- `on-request` 是 Codex 请求审批策略，沙箱内允许的命令可能自动执行，并非每条命令都会弹确认。仍应使用可信项目，核对既有 Codex 配置。
-- 默认语音已接入 Fun-ASR-Nano 神经网络模型；旧浏览器 SpeechRecognition 路径仅用于兼容回归测试。合成音频与实体麦克风验收分开记录，不把模拟生命周期测试当作识别质量证据。
-- UI 单元测试采用本地 DOM/协议夹具；另外已在本机浏览器检查真实历史记录、语音诊断及桌面/平板/手机布局，并验证真实麦克风写入草稿与停顿续说。不同手柄与麦克风组合仍需在目标设备复测。
-
-
-## 前端工程与语音状态
-
-- 编辑 src/voice-input.js（语音生命周期）、src/local-recognition.js（本地收音适配器）、src/voice-worklet.js（PCM 采集）、src/activity-view.js（执行过程组件）、src/gamepad-controls.js（手柄工作台）、src/controller-pilot.js（双摇杆与意图交互）和 src/app.js（页面协调），不要直接修改生成的 public/app.js。
-- npm run build 使用 Node 标准库合并并检查语法，通过后原子替换浏览器脚本；构建失败保留旧文件。npm test、npm start 及 Windows 启动器会先构建，无第三方 npm 依赖。
-- RT 使用模拟扳机迟滞和 140ms 松开防抖；短按开始持续语音，再按一次结束，松开扳机不结束收音。屏幕麦克风也使用点击开关。每段最长 3 分钟；正常采音后的静音停顿会续接并保留本段转写，连续快速空结束约 20 秒停止重试。网络、权限或设备错误停止识别并保留草稿。
-- 临时识别会由后续结果修正；手动编辑会停止自动覆盖。本地手动结束时立即释放麦克风，最多等待 25 秒完成尾句；旧浏览器适配器保留 1.5 秒完成等待。文字不会自动发送。
-- 语音诊断读取本地引擎、接口及权限状态，不发起麦克风权限申请，也不开始录音。诊断正常不等于真实收音或网络识别服务已经验收。
-- 当前提示按来源、会话和操作版本更新。历史轮次的失败留在历史卡片，不作为当前报错；自动重试显示为执行状态。
-- 思考区只展示服务端提供的摘要；无摘要的已结束记录不显示虚假的“正在思考”。终端、文件变更和工具调用可展开，回复支持安全文本生成的段落、列表、代码和表格，不执行回复中的 HTML。
-
-手工复测：刷新控制台后短按 RT 并松开，说话 20 秒，中间停顿后继续；再次短按 RT，检查尾句和修正结果。切换任务、断开手柄、拒绝权限与网络错误分别检查草稿是否保留，以及旧提示是否正确消失。
-
-## 手柄工作台
-
-- 点击页面顶部的「手柄工作台 / 手柄已连接」按钮打开；手机上也保留入口。银白色示意图采用 Gamepad API 标准索引，并非设备型号的实物复刻。
-- 17 个按键显示真实按压，左右扳机显示 0–100% 力度，摇杆显示原始坐标。未连接时明确显示等待状态，不播放虚构输入。
-- 点击示意图中的按键只选择设置对象，不执行发送、录音或中断。可调整十五个工作功能的分配（默认十三个已分配）；已占用功能自动交换，支持取消分配。方向键用于阅读导航，系统键在浏览器开放时可打开工作台。
-- 语音触发力度、摇杆死区和滚动速度即时生效；滚动按经过的时间计算，不依赖屏幕刷新率。RT 保留松开防抖与迟滞。
-- 设置只写入当前浏览器的 `codex-controller.gamepad.v1`，不上传服务端。保存失败时仍在本次会话生效；损坏或重复分配的存储数据不会直接应用。支持恢复默认。
-- 打开面板时停止手柄录音并保留草稿，暂停工作快捷键；确认键操作面板控件，返回键关闭，方向键导航 / 调整滑块。首次连接、切换设备、关闭面板或调整绑定后，先松开按键并让摇杆回中，再恢复快捷操作。
-- 浏览器未标记为 `standard` 的设备仅显示输入，不执行工作快捷键；查看设备映射后再使用标准模式。已连接设备优先保留，避免另一个手柄意外接管。
-
-人工复测：连接手柄并逐个按键，核对示意图、扳机力度与摇杆位置；交换两个功能并刷新页面检查保存；打开面板按发送 / 中断 / 语音键，确认没有工作操作；关闭后松开按键再使用。实体设备和真实语音仍需在目标硬件上确认。
-
-## 双摇杆创作驾驶舱
-
-以空间焦点为默认导航，需要精细定位时切换页面指针；ABXY 各司其职：
-
-| 输入 | 默认工作范式 |
+| Input | Default interaction |
 | --- | --- |
-| 左摇杆 | 按屏幕方位寻找控件；推过半程触发，回中重新点选，保持方向连续导航；方向有迟滞防抖 |
-| 右摇杆 | 轻推精读、重推快览；横向浏览长代码 / 表格；内层输出读到底后滚动外层，回中后最多 180ms 阻尼收稳 |
-| LT | 保持意图键，用左摇杆选择八种创作意图；保持方向松开 LT 加入草稿，回中松开或 B 取消 |
-| RT | 短按开始持续语音，再按结束；不发送草稿 |
-| A | 确认焦点 / 单击指针下的控件；输入框只聚焦，明确选中发送按钮后才发送 |
-| B | 逐层关闭屏幕键盘、窗口、轮盘、指针或专注模式，最后回到草稿；不删除文字，撤回意图使用明确的按钮 |
-| X | 打开 / 收起当前文本框的屏幕键盘；数字、字母、符号、退格、光标和选区替换，换行不发送 |
-| Y | 空间焦点 / 精准指针切换；指针模式下左摇杆轻推微调、重推加速，A 单击，右摇杆仍滚动 |
-| LB / RB | 上一个 / 下一个任务，草稿按任务保留 |
-| View | 任务速览卡片，可按任务名或目录搜索，不创建模型轮次 |
-| Start | 新任务窗口，不直接创建或发送 |
-| L3 | 切换专注工作区，收起侧栏与大标题，保留任务状态和草稿 |
-| R3 | 标记阅读位置，之后在标记与当前位置之间往返；驾驶条可清除 |
-| ↑ / ↓ | 逐段跳转消息与工具记录 |
-| ← / → | 收起 / 展开当前记录的详情；窗口内仍用于导航和调整控件 |
-| 系统键 | 浏览器提供该输入时，打开 / 关闭手柄工作台；系统可能拦截此键 |
+| Left stick | Spatial focus navigation; move the in-page pointer in pointer mode. |
+| Right stick | Variable-speed vertical reading and horizontal code/table scrolling. |
+| **A** | Confirm the focused control or click the pointer target. Focusing a text field does not send it. |
+| **B** | Back out of the current layer without deleting the draft. |
+| **X** | Open or close the on-screen keyboard for the active text field. |
+| **Y** | Switch between spatial focus and the in-page pointer. |
+| **RT** | Tap to start continuous voice; tap again to stop. No holding required. |
+| **LT + left stick** | Hold LT, select an intent, then release to append its prompt to the draft. Center the stick or press B to cancel. |
+| LB / RB | Previous / next task. Drafts are retained per task in the page session. |
+| View / Start | Task overview / new-task dialog. |
+| L3 / R3 | Focus layout / reading-position anchor. |
+| D-pad | Jump between records, expand details, or navigate controls inside dialogs. |
 
-- 底部驾驶条提供鼠标 / 键盘等价入口；每个创作意图都先显示完整模板，只追加到原草稿，不执行、自动发送或声称调用了模型。
-- R3 阅读锚点仅在本页会话中按任务保留，刷新后重建；专注模式只改变布局。
-- v1 / v2 按键分配迁移到 v3。旧默认 X=中断、Y=待确认升级为屏幕键盘 / 精准指针；真正的自定义位置与全部灵敏度保留，新功能不会抢占已重映射的按键。停止和待确认仍有页面入口，也可重新分配。存储键保持不变。
-- 左摇杆采用空间目标选择而非顺序模拟 Tab；右摇杆采用带死区的非线性速度和时间积分，不叠加 CSS smooth-scroll，避免每帧重启动画。闲置时不反复测量消息树。
-- 失焦、切换设备、断开连接会清掉手柄手势与惯性；鼠标打开的轮盘在未连接手柄时仍可正常使用。
-- 真实手柄、不同刷新率屏幕与语音设备的体感需在目标硬件确认；自动测试使用隔离输入，不伪造设备连接。
+Open **Controller Studio** from the header to remap buttons and adjust sensitivity. Settings stay in the current browser. Non-standard devices display raw input but do not execute workspace shortcuts. The pointer is confined to this webpage, not the operating system desktop.
 
-### ABXY 键鼠协作
+Keyboard and mouse remain first-class: use Tab, Shift+Tab, Enter and Space normally; `Alt+K` toggles the screen keyboard and `Alt+M` toggles the in-page pointer.
 
-- 屏幕键盘就地编辑真实文本框，不维护另一份待提交文本；用原生 `setRangeText` 维护选区并触发普通 input 事件，草稿保存、搜索和校验沿用原流程。退格按 Unicode 字素处理，不拆开组合 emoji。密码预览遮蔽内容，长度上限、只读和失效目标会检查。
-- 键盘可进入新任务目录、搜索框等当前窗口内的字段。实体鼠标或键盘可接续操作；Alt+K 切换键盘、Alt+M 切换指针，窗口内也可使用；按 Esc / B 或完成编辑收起，单行 Enter 只完成编辑，不提交。启动系统输入法时会把焦点交回原文本框，不拦截组合输入；RT 在主草稿内仍沿用原来的显式启用流程。
-- 指针是当前网页的可见光标，原生命中测试每次确认时重新读取目标；只激活当前层内可见、有效的控件。它不改变系统鼠标位置。实体鼠标 / 键盘接管时隐藏手柄指针；失焦、断连清掉临时模式但保留文字。
-- 参考 [Steam 桌面 FAQ](https://help.steampowered.com/en/faqs/view/671A-4453-E8D2-323C) 中的指针与屏幕键盘协作，以及 [Steam Input 传统绑定](https://partner.steamgames.com/doc/features/steam_controller/legacy_mode?language=english) 的鼠标、键盘和输入层设计。这里采用适合本工作台的显式切换，不依赖 Steam 进程。
+## Local voice
 
-复测：先选中草稿，X 打开键盘，移动选区并输入 / 退格，B 收起核对草稿；Y 切换指针，轻推 / 重推并用 A 激活无副作用的按钮；确认输入区按 A 不会发送，选中发送按钮后才会发送。检查目录与搜索字段、窄屏、断连和 RT 连续使用。
+The default voice path uses **Fun-ASR-Nano + Silero VAD on your machine**, rather than the browser's online speech-recognition service. The current integration targets Chinese dictation.
 
-### 持续语音的状态核验
+- Tap RT, speak, pause, and continue. Silence between utterances does not clear the transcript or end the whole recording.
+- Interim text can be corrected by the final utterance result. Review names, technical terms and mixed-language text before sending.
+- Each session lasts up to **3 minutes**. Stop releases the microphone immediately while the last utterance finishes.
+- Select the actual microphone in **Voice diagnostics** and inspect its live input level. An open microphone is not proof of audible input.
+- The application does not write raw audio to disk. Audio goes to the same-machine bridge; **sending the draft to Codex is a separate action**.
 
-- `starting` / `connecting` 只表示启动中；收到浏览器 `audiostart` 才显示麦克风已打开。浏览器通道 12 秒、本地通道 90 秒未收到采音或文字事件会报 `audio-timeout`，不伪装为收音中。
-- 页面保留本段结束状态与原因；失焦、隐藏页面、切换任务或断开手柄仍会结束相应会话。浏览器正常结束识别会话时自动续接，已有转写不清空。
-- 本功能保留的是本段转写草稿，不保存原始音频，也不声称具备跨会话语音记忆。事件依据：[MDN audiostart](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/audiostart_event)、[MDN end](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/end_event)。
+### Optional setup for a fresh clone
 
-### 本地识别实现与验证
+Use Python 3.12 and a separate virtual environment. Install a matching `torch` / `torchaudio` pair for your platform; choose the appropriate CPU/CUDA build using the [official PyTorch selector](https://pytorch.org/get-started/locally/).
 
-- `scripts/local-speech.mjs` 管理单个隐藏的常驻神经网络进程，复用模型、隔离会话、顺序 PCM、空闲回收及有界结束；`scripts/neural-speech.py` 仅接收标准输入，不访问麦克风。
-- `/api/voice/prepare`、`/start`、会话 `/audio?sequence=N`、`/end`、`/cancel` 保留精确同源校验；二进制请求仅开放给有界音频路由，RPC 不接受二进制。每块最多 64 KiB，总量最多 3 分钟；重复块幂等，过期会话和乱序输入被拒绝。
-- Python 管道使用显式长度帧，读取会等待完整帧，跨上传的短读不会被误判为 EOF。所有结果携带会话标识，取消后的旧结果不会写入新会话。停止时先 flush AudioWorklet 尾块并排空上传，再完成末句。
-- `npm test` 覆盖安装后的真实 Nano + Silero 中文渐进输入、35 秒初始静音、PCM 分片、静音不幻听、停顿分句、短尾句、20 秒分段、冷启动、权限、取消和 API 边界。缺少模型时真实引擎测试明确跳过，不伪装为通过。
-- 质量对比使用同一批合成音频、人工指定文本和两种引擎原样输出；仅作为固定小样本回归，不能代表真实用户准确率。本机调试报告、截图与历史快照不随仓库分发。
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install torch torchaudio
+.\.venv\Scripts\python.exe -m pip install "transformers==5.17.0" numpy huggingface_hub
+.\.venv\Scripts\python.exe scripts/setup-voice.py
+```
 
-### 收音中却没有文字
+Restart the workbench after setup. The installer downloads about **1.66 GB of ASR weights plus 2.3 MB of VAD weights**, pins revisions, verifies SHA-256 hashes and records the selected Python executable. Installation needs network access; runtime inference uses local files with remote model code disabled. CUDA is selected when available, otherwise CPU. CPU latency and recognition quality depend on your hardware and speech.
 
-- “麦克风已打开”只说明浏览器送来了 PCM 帧，不代表这些帧包含声音。收音面板现在显示实际设备名称与实时 RMS 电平（dBFS）；连续 5 秒全零 PCM 会提示“输入无信号”，不会编造识别文字，也不会因静音停止整段收音。
-- 在“语音诊断 → 录音麦克风”选择正在使用的设备，再关闭窗口、短按 RT 开始。设备列表读取本机浏览器接口，不额外打开麦克风；选择只影响下一次显式启动，不修改系统设置。设备断开时明确报错，不偷偷改用其他设备。
-- 系统默认输入可能与讲话位置不同，例如默认耳机麦克风，但用户对着笔记本说话。页面保留“跟随系统默认”选项，不推断用户正在使用哪一个设备。
-- 结束后可查看最近一段的收包字节、最大电平及讲话/转写事件次数。诊断只保留数字和时间，不保留原始音频或额外转写副本；旧段明确标注“最近一段”，新段计数从零开始。打开诊断窗口会结束当前收音。
+This setup recipe is not a fresh-machine certification. One Windows laptop has been checked with a Realtek microphone, real draft input and pause/resume; the detailed tested environment and limits are in the [usage guide](docs/USAGE.zh-CN.md#语音输入). The [upstream model card](https://huggingface.co/FunAudioLLM/Fun-ASR-Nano-2512-hf) documents the native Transformers integration and its own verification scope.
+
+## How it works
+
+```mermaid
+flowchart LR
+    accTitle: Codex Controller architecture
+    accDescr: Gamepad and keyboard control the browser. Microphone audio goes through the loopback bridge to local ASR and returns as a draft. Only an explicit send passes text through the bridge to Codex.
+    inputs["Gamepad / keyboard / mouse"] --> ui["Browser workbench"]
+    mic["Microphone"] --> ui
+    ui -->|"PCM audio · loopback"| bridge["Node.js bridge"]
+    bridge <-->|"Local frames / results"| asr["Local ASR worker"]
+    bridge <-->|"JSON-RPC · stdio"| codex["Official Codex app-server"]
+    ui -->|"Explicit send / approval"| bridge
+    bridge -->|"Transcript / status / output · SSE"| ui
+```
+
+The bridge starts a separate `codex app-server --stdio` process using the CLI's account and session facilities. Visibility of sessions created by another client depends on the shared Codex data directory. Speech recognition is local after setup; **Codex model requests are not an offline inference feature**.
+
+The server is intended for loopback use. Do not expose it through public ports or tunnels. Codex may execute commands and change files according to its configured sandbox and approval policy; not every action necessarily produces a new approval dialog. Available reasoning summaries are displayed as supplied—no synthetic private reasoning is generated.
+
+## Development
+
+```powershell
+npm run build   # Validate source and regenerate the browser bundle
+npm test        # Build, then run the existing Node test suite
+npm run smoke   # Read-only handshake with an installed Codex CLI
+```
+
+Edit `src/`, not the generated `public/app.js`. The build uses Node's standard library and preserves the previous bundle if validation fails.
+
+| Path | Responsibility |
+| --- | --- |
+| [`src/controller-pilot.js`](src/controller-pilot.js) | Spatial navigation, pointer, screen keyboard, scrolling and intent wheel. |
+| [`src/gamepad-controls.js`](src/gamepad-controls.js) | Controller visualization, remapping and tuning. |
+| [`src/voice-input.js`](src/voice-input.js), [`src/local-recognition.js`](src/local-recognition.js) | Recording lifecycle, draft updates and local audio transport. |
+| [`src/activity-view.js`](src/activity-view.js), [`src/app.js`](src/app.js) | Execution timeline and application coordination. |
+| [`server.mjs`](server.mjs) | Loopback HTTP/SSE bridge and Codex RPC lifecycle. |
+| [`scripts/`](scripts/) | Build, startup, model setup and local speech worker. |
+| [`tests/`](tests/) | Isolated UI/protocol regressions, audio boundaries and local-engine checks. |
+
+Tests cover controller gating, draft lifecycle, stale events, permissions and audio transport. Real-model tests explicitly skip when the local model/runtime is absent. Synthetic audio regression results are not an accuracy benchmark, and DOM fixtures do not certify physical controller behavior.
+
+## Project status
+
+**Experimental, Windows-first, Chinese UI.** This is a working local workbench, not a hosted service or a production-readiness claim.
+
+Next areas for contributions:
+
+- Controller compatibility reports and tested device presets.
+- More reproducible fresh-machine voice setup and representative speech evaluation.
+- Interface localization and broader hardware/accessibility testing.
+
+## Contributing
+
+Concrete feedback is especially valuable: include your browser, controller model/mapping, Node/Codex versions, reproduction steps, and expected versus actual behavior. For voice issues, add the selected microphone, input level and engine status; remove private transcripts and paths before sharing.
+
+Use [Issues](https://github.com/HUAYUE1024/codex-controller/issues) for reproducible bugs or focused ideas. For a pull request, keep the change small, edit source rather than the generated bundle, run `npm test`, and distinguish automated checks from hardware testing. Discuss large behavior changes in an issue first.
+
+If this interaction model is useful to you, **star the repository** to help others discover it. Device reports, thoughtful issues and small fixes are just as welcome.
+
+## License and acknowledgments
+
+Project code is released under the [MIT License](LICENSE). Downloaded models and third-party dependencies retain their own licenses and are not bundled in this repository.
+
+Built on the [official Codex CLI](https://github.com/openai/codex), [Fun-ASR-Nano](https://huggingface.co/FunAudioLLM/Fun-ASR-Nano-2512-hf) and [Silero VAD](https://github.com/snakers4/silero-vad). Input-layer ideas draw on [Steam Input's keyboard and mouse bindings](https://partner.steamgames.com/doc/features/steam_controller/legacy_mode?language=english); Steam is not a runtime dependency. This is an independent project, not affiliated with or endorsed by OpenAI or Valve.
